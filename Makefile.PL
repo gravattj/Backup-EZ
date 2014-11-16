@@ -19,7 +19,7 @@ WriteMakefile(
 	PREREQ_PM          => {
 				   'Config::General' => 0,
 				   'File::Slurp'     => 0,
-				   'OSSP::uuid'      => 0,
+				   'Data::UUID'      => 0,
 				   'Unix::Syslog'    => 0,
 				   'File::ShareDir'  => 0
 	},
