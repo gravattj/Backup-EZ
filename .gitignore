@@ -1,0 +1,11 @@
+Makefile
+Makefile.old
+*.gz
+.includepath
+.project
+MANIFEST*
+blib/
+cover_db/
+pm_to_blib
+MYMETA*
+META*

@@ -1,0 +1,5 @@
+- *.vdi
+- .cpanm/
+- tmp/
+ *.gvfs
+- Perforce/
