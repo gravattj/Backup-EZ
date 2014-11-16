@@ -8,7 +8,7 @@ use Config::General;
 use Carp;
 use Time::localtime;
 use Unix::Syslog qw(:macros :subs);
-use OSSP::uuid;
+use Data::UUID;
 use Sys::Hostname;
 use File::Slurp qw(slurp);
 use File::Spec;
@@ -29,11 +29,11 @@ Backup::EZ - Simple backups based on rsync
 
 =head1 VERSION
 
-Version 0.19
+Version 0.20
 
 =cut
 
-our $VERSION = '0.19';
+our $VERSION = '0.20';
 
 =head1 SYNOPSIS
 
@@ -213,10 +213,9 @@ sub _get_dest_dir {
 
 		if ( !-f '/etc/machine-id' ) {
 
-			my $uuid = OSSP::uuid->new;
-			$uuid->make('v4');
-			$uuid = $uuid->export('str');
-
+			my $data_uuid = Data::UUID->new;
+			my $uuid = $data_uuid->create_str();	
+			
 			open my $fh, ">/etc/machine-id"
 			  or confess "failed to open /etc/machine-id: $!";
 			print $fh "$uuid\n";
