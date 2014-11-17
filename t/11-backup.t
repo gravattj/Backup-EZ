@@ -19,6 +19,7 @@ ok( !$ez->get_list_of_backups() );
 
 $ez = Backup::EZ->new(
 					   conf         => 't/ezbackup.conf',
+					   exclude_file => 'share/ezbackup_exclude.rsync',
 					   dryrun       => 0
 );
 die if !$ez;
