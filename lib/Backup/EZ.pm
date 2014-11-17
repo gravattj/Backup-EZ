@@ -12,6 +12,7 @@ use Data::UUID;
 use Sys::Hostname;
 use File::Slurp qw(slurp);
 use File::Spec;
+use Test::More;
 
 #
 # CONSTANTS
@@ -20,7 +21,6 @@ use constant EXCLUDE_FILE        => '/etc/ezbackup/ezbackup_exclude.rsync';
 use constant CONF                => '/etc/ezbackup/ezbackup.conf';
 use constant COPIES              => 30;
 use constant DEST_HOSTNAME       => 'localhost';
-use constant DEST_DIR            => '/backups';
 use constant DEST_APPEND_MACH_ID => 0;
 
 =head1 NAME
@@ -29,11 +29,11 @@ Backup::EZ - Simple backups based on rsync
 
 =head1 VERSION
 
-Version 0.21
+Version 0.22
 
 =cut
 
-our $VERSION = '0.21';
+our $VERSION = '0.22';
 
 =head1 SYNOPSIS
 
@@ -66,6 +66,7 @@ sub new {
 
 	my $self = {};
 
+	# uncoverable branch true
 	if ( $ENV{VERBOSE} ) {
 		setlogmask( LOG_UPTO(LOG_DEBUG) );
 		$self->{syslog_option} = LOG_PID | LOG_PERROR;
@@ -101,14 +102,14 @@ sub _debug {
 	closelog;
 }
 
-sub _error {
-	my $self = shift;
-	my $msg  = shift;
-
-	openlog "ezbackup", $self->{syslog_option}, LOG_LOCAL7;
-	syslog LOG_ERR, $msg;
-	closelog;
-}
+#sub _error {
+#	my $self = shift;
+#	my $msg  = shift;
+#
+#	openlog "ezbackup", $self->{syslog_option}, LOG_LOCAL7;
+#	syslog LOG_ERR, $msg;
+#	closelog;
+#}
 
 sub _info {
 	my $self = shift;
@@ -123,7 +124,8 @@ sub _read_conf {
 	my $self = shift;
 	my %a    = @_;
 
-	my $conf = $a{conf} ? $a{conf} : CONF;
+	# uncoverable branch false
+	my $conf = $a{conf} ? $a{conf} : CONF; 
 
 	my $config = Config::General->new(
 		-ConfigFile     => $conf,
@@ -144,10 +146,6 @@ sub _read_conf {
 
 		if ( !defined $conf{copies} ) {
 			$conf{copies} = COPIES;
-		}
-
-		if ( !defined $conf{dest_dir} ) {
-			$conf{dest_dir} = DEST_DIR;
 		}
 
 		if ( !defined $conf{append_machine_id} ) {
@@ -180,22 +178,25 @@ sub _ssh {
 	my $dryrun = shift;
 
 	my $sshcmd;
+	my $login = $self->_get_dest_login;
 
-	if ( $0 =~ /\.t$/ ) {
+	# uncoverable branch false
+	if ( $self->_is_unit_test ) {
 
 		# unit testing
 		$sshcmd = "$cmd";
 	}
 	else {
-		$sshcmd = sprintf( 'ssh %s@%s %s',
-						   $self->_get_dest_username, $self->_get_dest_hostname,
-						   $cmd );
+		$sshcmd =
+		  sprintf( 'ssh %s %s', $login, $self->_get_dest_hostname, $cmd );
 	}
 
 	$self->_debug($sshcmd);
 	return undef if $dryrun;
 
 	my @out = `$sshcmd`;
+
+	# uncoverable branch true
 	confess if $?;
 
 	return @out;
@@ -224,50 +225,22 @@ sub _get_dest_hostname {
 	return $self->{conf}->{backup_host};
 }
 
-sub _get_dest_dir {
-	my $self = shift;
-
-	my $hostname = hostname();
-	$hostname =~ s/\..+$//;
-
-	if ( $self->{conf}->{append_machine_id} ) {
-
-		if ( !-f '/etc/machine-id' ) {
-
-			my $data_uuid = Data::UUID->new;
-			my $uuid      = $data_uuid->create_str();
-
-			open my $fh, ">/etc/machine-id"
-			  or confess "failed to open /etc/machine-id: $!";
-			print $fh "$uuid\n";
-			close($fh);
-		}
-
-		my $uuid = slurp("/etc/machine-id");
-		chomp $uuid;
-
-		$hostname = "$hostname-$uuid";
-
-	}
-
-	return sprintf( "%s/%s", $self->{conf}->{dest_dir}, $hostname );
-}
-
 sub _get_dest_tmp_dir {
 	my $self = shift;
 
-	return sprintf( "%s/%s", $self->_get_dest_dir, ".tmp" );
+	return sprintf( "%s/%s", $self->get_dest_dir, ".tmp" );
 }
 
 sub _get_dest_backup_dir {
 	my $self = shift;
 
-	return sprintf( "%s/%s", $self->_get_dest_dir, $self->{datestamp} );
+	return sprintf( "%s/%s", $self->get_dest_dir, $self->{datestamp} );
 }
 
 sub _is_unit_test {
 	my $self = shift;
 
+	# uncoverable branch false
 	if ( $0 =~ /\.t$/ ) {
 		return 1;
 	}
@@ -278,12 +251,10 @@ sub _is_unit_test {
 sub _get_dest_login {
 	my $self = shift;
 
-	if ( $self->_is_unit_test ) {
-		return '';
-	}
+	my $username = $self->_get_dest_username;
+	my $hostname = $self->_get_dest_hostname;
 
-	return
-	  sprintf( '%s@%s', $self->_get_dest_username, $self->_get_dest_hostname );
+	return sprintf( '%s@%s', $username, $hostname );
 }
 
 sub _rsync {
@@ -292,13 +263,16 @@ sub _rsync {
 	my @extra_options = @_;
 
 	my $cmd;
+	my $login;
 
 	if ( $self->{dryrun} ) {
 		push( @extra_options, '--dry-run' );
 	}
 
 	$self->_mk_dest_dir( sprintf( "%s%s", $self->_get_dest_tmp_dir, $dir ) );
+	$login = $self->_get_dest_login;
 
+	# uncoverable branch false
 	if ( $self->_is_unit_test ) {
 		$cmd = sprintf(
 						"rsync %s -a %s/ %s%s",
@@ -309,17 +283,16 @@ sub _rsync {
 	else {
 		$cmd = sprintf( "rsync %s -aze ssh %s/ %s:%s%s",
 						join( ' ', @extra_options ),
-						$dir, $self->_get_dest_login, $self->_get_dest_tmp_dir,
-						$dir );
+						$dir, $login, $self->_get_dest_tmp_dir, $dir );
 	}
 
-	if ( $self->{exclude_file} ) {
-		$cmd .= " --exclude-from " . $self->{exclude_file};
-	}
-
+	$cmd .= " --exclude-from " . $self->{exclude_file};
+	
 	$self->_debug($cmd);
 	system($cmd);
-	confess if $?;
+
+	# uncoverable branch true
+	confess if $?; 
 }
 
 sub _full_backup {
@@ -335,7 +308,7 @@ sub _inc_backup {
 	my $last_backup_dir = shift;
 
 	my $link_dest =
-	  sprintf( "%s/%s/%s", $self->_get_dest_dir, $last_backup_dir, $dir );
+	  sprintf( "%s/%s/%s", $self->get_dest_dir, $last_backup_dir, $dir );
 
 	$self->_rsync( $dir, "--link-dest $link_dest" );
 }
@@ -368,7 +341,7 @@ Invokes the backup process.  Takes no args.
 sub backup {
 	my $self = shift;
 
-	$self->_mk_dest_dir( $self->_get_dest_dir );
+	$self->_mk_dest_dir( $self->get_dest_dir );
 	my @backups = $self->get_list_of_backups;
 	$self->_set_datestamp;
 
@@ -389,7 +362,7 @@ sub backup {
 		}
 	}
 
-	$self->_mk_dest_dir( $self->_get_dest_dir, $self->{dryrun} );
+	$self->_mk_dest_dir( $self->get_dest_dir, $self->{dryrun} );
 	$self->_ssh(
 				 sprintf( "mv %s %s",
 						  $self->_get_dest_tmp_dir,
@@ -417,7 +390,7 @@ sub expire {
 	while ( scalar(@list) > $self->{conf}->{copies} ) {
 
 		my $subdir = shift @list;
-		my $del_dir = sprintf( "%s/%s", $self->_get_dest_dir, $subdir );
+		my $del_dir = sprintf( "%s/%s", $self->get_dest_dir, $subdir );
 
 		$self->_ssh("rm -rf $del_dir");
 	}
@@ -442,7 +415,33 @@ Returns the dest_dir.
 
 sub get_dest_dir {
 	my $self = shift;
-	return $self->{conf}->{dest_dir};
+
+	my $hostname = hostname();
+	$hostname =~ s/\..+$//;
+
+	if ( $self->{conf}->{append_machine_id} ) {
+
+		# uncoverable branch true
+		if ( !-f '/etc/machine-id' ) {
+
+			# uncoverable statement count:2
+			my $data_uuid = Data::UUID->new;
+			my $uuid      = $data_uuid->create_str();
+
+			# uncoverable statement count:3
+			open my $fh, ">/etc/machine-id"
+			  or confess "failed to open /etc/machine-id: $!";
+			print $fh "$uuid\n";
+			close($fh);
+		}
+
+		my $uuid = slurp("/etc/machine-id");
+		chomp $uuid;
+
+		$hostname = "$hostname-$uuid";
+	}
+
+	return sprintf( "%s/%s", $self->{conf}->{dest_dir}, $hostname );
 }
 
 =head2 get_list_of_backups
@@ -455,7 +454,7 @@ sub get_list_of_backups {
 
 	my @backups;
 
-	my @list = $self->_ssh( sprintf( "ls %s", $self->_get_dest_dir ) );
+	my @list = $self->_ssh( sprintf( "ls %s", $self->get_dest_dir ) );
 
 	foreach my $e (@list) {
 		chomp $e;
