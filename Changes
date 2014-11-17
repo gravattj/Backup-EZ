@@ -1,5 +1,7 @@
 Revision history for Backup-EZ
 
+0.21	disabled ssh for unit tests
+
 0.01    Date/time
         First version, released on an unsuspecting world.
 
