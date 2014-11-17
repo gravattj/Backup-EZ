@@ -34,7 +34,7 @@ ok( @list == 2 );
 
 # cleanup
 my $cmd =
-  sprintf( "ssh %s rm -rf %s", $ez->get_backup_host(), $ez->get_dest_dir() );
+  sprintf( "rm -rf %s", $ez->get_dest_dir() );
 system($cmd);
 
 done_testing();
