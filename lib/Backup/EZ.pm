@@ -179,14 +179,18 @@ sub _ssh {
 	my $cmd    = shift;
 	my $dryrun = shift;
 
-	my $user = '';
-	if ( $self->{conf}->{backup_user} ) {
-		$user = $self->{conf}->{backup_user};
-		$user .= '@';
-	}
+	my $sshcmd;
 
-	my $sshcmd =
-	  sprintf( "ssh %s%s %s", $user, $self->_get_dest_hostname, $cmd );
+	if ( $0 =~ /\.t$/ ) {
+
+		# unit testing
+		$sshcmd = "$cmd";
+	}
+	else {
+		$sshcmd = sprintf( 'ssh %s@%s %s',
+						   $self->_get_dest_username, $self->_get_dest_hostname,
+						   $cmd );
+	}
 
 	$self->_debug($sshcmd);
 	return undef if $dryrun;
@@ -195,6 +199,23 @@ sub _ssh {
 	confess if $?;
 
 	return @out;
+}
+
+sub _get_dest_username {
+	my $self = shift;
+
+	if ( $self->{conf}->{backup_user} ) {
+		return $self->{conf}->{backup_user};
+	}
+
+	if ( $ENV{USER} ) {
+		return $ENV{USER};
+	}
+
+	my $whoami = `whoami`;
+	chomp $whoami;
+
+	return $whoami;
 }
 
 sub _get_dest_hostname {
@@ -214,8 +235,8 @@ sub _get_dest_dir {
 		if ( !-f '/etc/machine-id' ) {
 
 			my $data_uuid = Data::UUID->new;
-			my $uuid = $data_uuid->create_str();	
-			
+			my $uuid      = $data_uuid->create_str();
+
 			open my $fh, ">/etc/machine-id"
 			  or confess "failed to open /etc/machine-id: $!";
 			print $fh "$uuid\n";
@@ -244,19 +265,53 @@ sub _get_dest_backup_dir {
 	return sprintf( "%s/%s", $self->_get_dest_dir, $self->{datestamp} );
 }
 
+sub _is_unit_test {
+	my $self = shift;
+
+	if ( $0 =~ /\.t$/ ) {
+		return 1;
+	}
+
+	return 0;
+}
+
+sub _get_dest_login {
+	my $self = shift;
+
+	if ( $self->_is_unit_test ) {
+		return '';
+	}
+
+	return
+	  sprintf( '%s@%s', $self->_get_dest_username, $self->_get_dest_hostname );
+}
+
 sub _rsync {
 	my $self          = shift;
 	my $dir           = shift;
 	my @extra_options = @_;
 
-	my $dryrun = $self->{dryrun} ? '--dry-run' : '';
+	my $cmd;
+
+	if ( $self->{dryrun} ) {
+		push( @extra_options, '--dry-run' );
+	}
 
 	$self->_mk_dest_dir( sprintf( "%s%s", $self->_get_dest_tmp_dir, $dir ) );
 
-	my $cmd = sprintf( "rsync %s %s -aze ssh %s/ %s:%s%s",
-					   $dryrun, join( ' ', @extra_options ),
-					   $dir, $self->_get_dest_hostname,
-					   $self->_get_dest_tmp_dir, $dir );
+	if ( $self->_is_unit_test ) {
+		$cmd = sprintf(
+						"rsync %s -a %s/ %s%s",
+						join( ' ', @extra_options ), $dir,
+						$self->_get_dest_tmp_dir, $dir
+		);
+	}
+	else {
+		$cmd = sprintf( "rsync %s -aze ssh %s/ %s:%s%s",
+						join( ' ', @extra_options ),
+						$dir, $self->_get_dest_login, $self->_get_dest_tmp_dir,
+						$dir );
+	}
 
 	if ( $self->{exclude_file} ) {
 		$cmd .= " --exclude-from " . $self->{exclude_file};
@@ -280,8 +335,7 @@ sub _inc_backup {
 	my $last_backup_dir = shift;
 
 	my $link_dest =
-	  sprintf( "%s/%s/%s", $self->_get_dest_dir, $last_backup_dir, $dir )
-	  ;
+	  sprintf( "%s/%s/%s", $self->_get_dest_dir, $last_backup_dir, $dir );
 
 	$self->_rsync( $dir, "--link-dest $link_dest" );
 }
