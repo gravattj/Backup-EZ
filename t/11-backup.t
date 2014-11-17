@@ -30,7 +30,7 @@ ok( @list == 1 );
 
 ok( $ez->backup );
 @list = $ez->get_list_of_backups();
-ok( @list == 2 );
+ok( @list == 2 ) or print Dumper \@list;
 
 # cleanup
 my $cmd =
