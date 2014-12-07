@@ -1,5 +1,7 @@
 Revision history for Backup-EZ
 
+0.23    bug fixes
+
 0.22	improved unit test coverage
 
 0.21	disabled ssh for unit tests
