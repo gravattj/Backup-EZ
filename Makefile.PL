@@ -17,15 +17,21 @@ WriteMakefile(
 	MIN_PERL_VERSION   => 5.006,
 	CONFIGURE_REQUIRES => { 'ExtUtils::MakeMaker' => 0, },
 	PREREQ_PM          => {
-				   'Config::General' => 0,
-				   'File::Slurp'     => 0,
-				   'Data::UUID'      => 0,
-				   'Unix::Syslog'    => 0,
-				   'File::ShareDir'  => 0
+				   'Config::General'         => 0,
+				   'File::Slurp'             => 0,
+				   'Data::UUID'              => 0,
+				   'Unix::Syslog'            => 0,
+				   'Data::Printer'           => 0,
+				   'File::ShareDir'			 => 0,
+				   'File::ShareDir::Install' => 0,
+				   'Devel::Confess'          => 0,
 	},
-	BUILD_REQUIRES => { 'Test::More' => 0, },
-	dist           => { COMPRESS     => 'gzip -9f', SUFFIX => 'gz', },
-	clean          => { FILES        => 'Backup-EZ-*' },
+	BUILD_REQUIRES => {
+						'Test::More'              => 0,
+						'File::ShareDir::Install' => 0
+	},
+	dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
+	clean => { FILES    => 'Backup-EZ-*' },
 );
 
 package MY;

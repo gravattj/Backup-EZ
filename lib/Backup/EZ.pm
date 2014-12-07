@@ -3,9 +3,9 @@ package Backup::EZ;
 use strict;
 use warnings;
 use warnings FATAL => 'all';
-use Data::Dumper;
 use Config::General;
 use Carp;
+use Devel::Confess 'color';
 use Time::localtime;
 use Unix::Syslog qw(:macros :subs);
 use Data::UUID;
@@ -13,6 +13,7 @@ use Sys::Hostname;
 use File::Slurp qw(slurp);
 use File::Spec;
 use Test::More;
+use Data::Printer use_prototypes => 0;
 
 #
 # CONSTANTS
@@ -29,11 +30,11 @@ Backup::EZ - Simple backups based on rsync
 
 =head1 VERSION
 
-Version 0.22
+Version 0.23
 
 =cut
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 
 =head1 SYNOPSIS
 
@@ -47,7 +48,8 @@ our $VERSION = '0.22';
 Backup::EZ is backup software that is designed to be as easy to use
 as possible, yet provide a robust solution
 
-If you only want to run backups, see the included command line utility "ezbackup".   
+If you only want to run backups, see the included command line utility 
+"ezbackup".  See the README for configuration instructions. 
 
 =head1 SUBROUTINES/METHODS
 
@@ -97,8 +99,10 @@ sub _debug {
 	my $self = shift;
 	my $msg  = shift;
 
+	my $line = (caller)[2];
+	
 	openlog "ezbackup", $self->{syslog_option}, LOG_LOCAL7;
-	syslog LOG_DEBUG, $msg;
+	syslog LOG_DEBUG, "($line) $msg";
 	closelog;
 }
 
@@ -136,7 +140,7 @@ sub _read_conf {
 	);
 
 	my %conf = $config->getall;
-	_debug( $self, Dumper \%conf );
+	_debug( $self, p \%conf );
 
 	foreach my $key ( keys %conf ) {
 
@@ -153,6 +157,10 @@ sub _read_conf {
 		}
 	}
 
+	if (ref($conf{dir}) ne 'ARRAY') {
+		$conf{dir} = [ $conf{dir} ];		
+	}
+	
 	$self->{conf} = \%conf;
 }
 
@@ -161,7 +169,7 @@ sub _get_dirs {
 
 	my @dirs;
 
-	foreach my $dir ( keys %{ $self->{conf}->{dirs} } ) {
+	foreach my $dir ( @{ $self->{conf}->{dir} } ) {
 
 		if ( !File::Spec->file_name_is_absolute($dir) ) {
 			confess "relative dirs are not supported";
@@ -169,6 +177,8 @@ sub _get_dirs {
 
 		push( @dirs, $dir );
 	}
+	
+	$self->_debug(p \@dirs);
 	return @dirs;
 }
 
@@ -188,7 +198,7 @@ sub _ssh {
 	}
 	else {
 		$sshcmd =
-		  sprintf( 'ssh %s %s', $login, $self->_get_dest_hostname, $cmd );
+		  sprintf( 'ssh %s %s', $login, $cmd );
 	}
 
 	$self->_debug($sshcmd);

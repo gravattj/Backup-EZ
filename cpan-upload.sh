@@ -1,1 +1,1 @@
-cpan-upload -u gravattj $1
+cpan-upload -u gravattj *.gz

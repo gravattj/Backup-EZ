@@ -18,9 +18,9 @@ ok( $ez->backup );
 ok( !$ez->get_list_of_backups() );
 
 $ez = Backup::EZ->new(
-					   conf         => 't/ezbackup.conf',
-					   exclude_file => 'share/ezbackup_exclude.rsync',
-					   dryrun       => 0
+					conf         => 't/ezbackup.conf',
+					exclude_file => 'share/ezbackup_exclude.rsync',
+					dryrun       => 0
 );
 die if !$ez;
 
@@ -42,16 +42,16 @@ $ez = Backup::EZ->new(
 );
 die if !$ez;
 
-ok(sleep 1 && $ez->backup);
+ok( sleep 1 && $ez->backup );
 @list = $ez->get_list_of_backups();
-ok(@list == 3) or print STDERR Dumper \@list;
+ok( @list == 3 ) or print STDERR Dumper \@list;
 
-my $cmd = sprintf("touch %s/junk", $ez->get_dest_dir());
+my $cmd = sprintf( "touch %s/junk", $ez->get_dest_dir() );
 system($cmd);
 die if $?;
 
 @list = $ez->get_list_of_backups();
-ok(@list == 3);
+ok( @list == 3 );
 
 # cleanup
 $cmd = sprintf( "rm -rf %s", $ez->get_dest_dir() );
