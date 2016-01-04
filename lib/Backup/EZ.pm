@@ -13,7 +13,8 @@ use Sys::Hostname;
 use File::Slurp qw(slurp);
 use File::Spec;
 use Test::More;
-use Data::Printer use_prototypes => 0;
+#use Data::Printer use_prototypes => 0;
+use Data::Dumper;
 
 #
 # CONSTANTS
@@ -30,11 +31,11 @@ Backup::EZ - Simple backups based on rsync
 
 =head1 VERSION
 
-Version 0.23
+Version 0.24
 
 =cut
 
-our $VERSION = '0.23';
+our $VERSION = '0.24';
 
 =head1 SYNOPSIS
 
@@ -101,7 +102,7 @@ sub _debug {
 
 	my $line = (caller)[2];
 	
-	openlog "ezbackup", $self->{syslog_option}, LOG_LOCAL7;
+	openlog "ezbackup", $self->{syslog_option}, LOG_SYSLOG;
 	syslog LOG_DEBUG, "($line) $msg";
 	closelog;
 }
@@ -119,7 +120,7 @@ sub _info {
 	my $self = shift;
 	my $msg  = shift;
 
-	openlog "ezbackup", $self->{syslog_option}, LOG_LOCAL7;
+	openlog "ezbackup", $self->{syslog_option}, LOG_SYSLOG;
 	syslog LOG_INFO, $msg;
 	closelog;
 }
@@ -140,7 +141,7 @@ sub _read_conf {
 	);
 
 	my %conf = $config->getall;
-	_debug( $self, p \%conf );
+	_debug( $self, Dumper \%conf );
 
 	foreach my $key ( keys %conf ) {
 
@@ -178,7 +179,7 @@ sub _get_dirs {
 		push( @dirs, $dir );
 	}
 	
-	$self->_debug(p \@dirs);
+	$self->_debug(Dumper \@dirs);
 	return @dirs;
 }
 

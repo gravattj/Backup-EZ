@@ -1,5 +1,8 @@
 Revision history for Backup-EZ
 
+0.24    - changed facility for log messages to LOG_SYSLOG from LOG_LOCAL7
+        - switched debug messages from Data::Printer to Data::Dumper 
+
 0.23    bug fixes
 
 0.22	improved unit test coverage

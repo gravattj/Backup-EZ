@@ -25,6 +25,7 @@ WriteMakefile(
 				   'File::ShareDir'			 => 0,
 				   'File::ShareDir::Install' => 0,
 				   'Devel::Confess'          => 0,
+                   'Data::Dumper'           => 0,
 	},
 	BUILD_REQUIRES => {
 						'Test::More'              => 0,
