@@ -16,7 +16,7 @@ system("t/pave.pl");
 
 # verify dryrun actually works
 my $ez = Backup::EZ->new(
-						  conf         => 't/ezbackup.conf',
+						  conf         => 't/ezbackup_missing_dir.conf',
 						  exclude_file => 'share/ezbackup_exclude.rsync',
 						  dryrun       => 1
 );
@@ -28,7 +28,7 @@ ok( !$ez->get_list_of_backups() );
 
 # now run for real
 $ez = Backup::EZ->new(
-					conf         => 't/ezbackup.conf',
+					conf         => 't/ezbackup_missing_dir.conf',
 					exclude_file => 'share/ezbackup_exclude.rsync',
 					dryrun       => 0
 );
@@ -44,28 +44,6 @@ ok( @list == 2 ) or print Dumper \@list;
 
 my $host = $ez->get_backup_host;
 ok($host);
-
-$ez = Backup::EZ->new(
-					   conf         => 't/ezbackup_min.conf',
-					   exclude_file => 'share/ezbackup_exclude.rsync',
-					   dryrun       => 0
-);
-die if !$ez;
-
-ok( sleep 1 && $ez->backup );
-@list = $ez->get_list_of_backups();
-ok( @list == 3 ) or print STDERR Dumper \@list;
-
-my $cmd = sprintf( "touch %s/junk", $ez->get_dest_dir() );
-system($cmd);
-die if $?;
-
-@list = $ez->get_list_of_backups();
-ok( @list == 3 );
-
-# cleanup
-$cmd = sprintf( "rm -rf %s", $ez->get_dest_dir() );
-system($cmd);
 
 
 system("t/nuke.pl");

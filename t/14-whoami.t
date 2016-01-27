@@ -8,6 +8,9 @@ use Test::More;
 
 $ENV{USER} = undef;
 
+system("t/nuke.pl");
+system("t/pave.pl");
+
 my $ez;
 eval {
 	$ez = Backup::EZ->new(
@@ -19,4 +22,5 @@ eval {
 ok($ez);
 ok(	$ez->backup);
 
+system("t/nuke.pl");
 done_testing();

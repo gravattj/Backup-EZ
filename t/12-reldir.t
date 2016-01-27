@@ -6,6 +6,9 @@ use Backup::EZ;
 use Data::Dumper;
 use Test::More;
 
+system("t/nuke.pl");
+system("t/pave.pl");
+
 my $ez;
 eval {
 	$ez = Backup::EZ->new(
@@ -21,4 +24,6 @@ eval {
 };
 ok($@);
 
+
+system("t/nuke.pl");
 done_testing();

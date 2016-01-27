@@ -13,6 +13,7 @@ use Sys::Hostname;
 use File::Slurp qw(slurp);
 use File::Spec;
 use Test::More;
+
 #use Data::Printer use_prototypes => 0;
 use Data::Dumper;
 
@@ -24,6 +25,7 @@ use constant CONF                => '/etc/ezbackup/ezbackup.conf';
 use constant COPIES              => 30;
 use constant DEST_HOSTNAME       => 'localhost';
 use constant DEST_APPEND_MACH_ID => 0;
+use constant USE_SUDO            => 0;
 
 =head1 NAME
 
@@ -31,11 +33,11 @@ Backup::EZ - Simple backups based on rsync
 
 =head1 VERSION
 
-Version 0.24
+Version 0.25
 
 =cut
 
-our $VERSION = '0.24';
+our $VERSION = '0.25';
 
 =head1 SYNOPSIS
 
@@ -64,47 +66,47 @@ optional args:
 =cut
 
 sub new {
-	my $class = shift;
-	my %a     = @_;
+    my $class = shift;
+    my %a     = @_;
 
-	my $self = {};
+    my $self = {};
 
-	# uncoverable branch true
-	if ( $ENV{VERBOSE} ) {
-		setlogmask( LOG_UPTO(LOG_DEBUG) );
-		$self->{syslog_option} = LOG_PID | LOG_PERROR;
-	}
-	else {
-		setlogmask( LOG_UPTO(LOG_INFO) );
-		$self->{syslog_option} = LOG_PID;
-	}
+    # uncoverable branch true
+    if ( $ENV{VERBOSE} ) {
+        setlogmask( LOG_UPTO(LOG_DEBUG) );
+        $self->{syslog_option} = LOG_PID | LOG_PERROR;
+    }
+    else {
+        setlogmask( LOG_UPTO(LOG_INFO) );
+        $self->{syslog_option} = LOG_PID;
+    }
 
-	_read_conf( $self, @_ );
+    _read_conf( $self, @_ );
 
-	if ( $a{dryrun} ) {
-		$self->{dryrun} = 1;
-	}
+    if ( $a{dryrun} ) {
+        $self->{dryrun} = 1;
+    }
 
-	if ( !defined $a{exclude_file} ) {
-		$self->{exclude_file} = EXCLUDE_FILE;
-	}
-	else {
-		$self->{exclude_file} = $a{exclude_file};
-	}
+    if ( !defined $a{exclude_file} ) {
+        $self->{exclude_file} = EXCLUDE_FILE;
+    }
+    else {
+        $self->{exclude_file} = $a{exclude_file};
+    }
 
-	bless $self, $class;
-	return $self;
+    bless $self, $class;
+    return $self;
 }
 
 sub _debug {
-	my $self = shift;
-	my $msg  = shift;
+    my $self = shift;
+    my $msg  = shift;
 
-	my $line = (caller)[2];
-	
-	openlog "ezbackup", $self->{syslog_option}, LOG_SYSLOG;
-	syslog LOG_DEBUG, "($line) $msg";
-	closelog;
+    my $line = (caller)[2];
+
+    openlog "ezbackup", $self->{syslog_option}, LOG_SYSLOG;
+    syslog LOG_DEBUG, "($line) $msg";
+    closelog;
 }
 
 #sub _error {
@@ -117,230 +119,237 @@ sub _debug {
 #}
 
 sub _info {
-	my $self = shift;
-	my $msg  = shift;
+    my $self = shift;
+    my $msg  = shift;
 
-	openlog "ezbackup", $self->{syslog_option}, LOG_SYSLOG;
-	syslog LOG_INFO, $msg;
-	closelog;
+    openlog "ezbackup", $self->{syslog_option}, LOG_SYSLOG;
+    syslog LOG_INFO, $msg;
+    closelog;
 }
 
 sub _read_conf {
-	my $self = shift;
-	my %a    = @_;
+    my $self = shift;
+    my %a    = @_;
 
-	# uncoverable branch false
-	my $conf = $a{conf} ? $a{conf} : CONF; 
+    # uncoverable branch false
+    my $conf = $a{conf} ? $a{conf} : CONF;
 
-	my $config = Config::General->new(
-		-ConfigFile     => $conf,
-		-ForceArray     => 1,
-		-LowerCaseNames => 1,
-		-AutoTrue       => 1,
+    my $config = Config::General->new(
+        -ConfigFile     => $conf,
+        -ForceArray     => 1,
+        -LowerCaseNames => 1,
+        -AutoTrue       => 1,
 
-	);
+    );
 
-	my %conf = $config->getall;
-	_debug( $self, Dumper \%conf );
+    my %conf = $config->getall;
+    _debug( $self, Dumper \%conf );
 
-	foreach my $key ( keys %conf ) {
+    foreach my $key ( keys %conf ) {
 
-		if ( !defined $conf{backup_host} ) {
-			$conf{backup_host} = DEST_HOSTNAME;
-		}
+        if ( !defined $conf{backup_host} ) {
+            $conf{backup_host} = DEST_HOSTNAME;
+        }
 
-		if ( !defined $conf{copies} ) {
-			$conf{copies} = COPIES;
-		}
+        if ( !defined $conf{copies} ) {
+            $conf{copies} = COPIES;
+        }
 
-		if ( !defined $conf{append_machine_id} ) {
-			$conf{append_machine_id} = DEST_APPEND_MACH_ID;
-		}
-	}
+        if ( !defined $conf{append_machine_id} ) {
+            $conf{append_machine_id} = DEST_APPEND_MACH_ID;
+        }
 
-	if (ref($conf{dir}) ne 'ARRAY') {
-		$conf{dir} = [ $conf{dir} ];		
-	}
-	
-	$self->{conf} = \%conf;
+        if ( !defined $conf{use_sudo} ) {
+            $conf{use_sudo} = USE_SUDO;
+        }
+    }
+
+    if ( ref( $conf{dir} ) ne 'ARRAY' ) {
+        $conf{dir} = [ $conf{dir} ];
+    }
+
+    $self->{conf} = \%conf;
 }
 
 sub _get_dirs {
-	my $self = shift;
+    my $self = shift;
 
-	my @dirs;
+    my @dirs;
 
-	foreach my $dir ( @{ $self->{conf}->{dir} } ) {
+    foreach my $dir ( @{ $self->{conf}->{dir} } ) {
 
-		if ( !File::Spec->file_name_is_absolute($dir) ) {
-			confess "relative dirs are not supported";
-		}
+        if ( !File::Spec->file_name_is_absolute($dir) ) {
+            confess "relative dirs are not supported";
+        }
 
-		push( @dirs, $dir );
-	}
-	
-	$self->_debug(Dumper \@dirs);
-	return @dirs;
+        push( @dirs, $dir );
+    }
+
+    $self->_debug( Dumper \@dirs );
+    return @dirs;
 }
 
 sub _ssh {
-	my $self   = shift;
-	my $cmd    = shift;
-	my $dryrun = shift;
+    my $self   = shift;
+    my $cmd    = shift;
+    my $dryrun = shift;
 
-	my $sshcmd;
-	my $login = $self->_get_dest_login;
+    my $sshcmd;
+    my $login = $self->_get_dest_login;
 
-	# uncoverable branch false
-	if ( $self->_is_unit_test ) {
+    # uncoverable branch false
+    if ( $self->_is_unit_test ) {
 
-		# unit testing
-		$sshcmd = "$cmd";
-	}
-	else {
-		$sshcmd =
-		  sprintf( 'ssh %s %s', $login, $cmd );
-	}
+        # unit testing
+        $sshcmd = "$cmd";
+    }
+    else {
+        $sshcmd = sprintf( 'ssh %s %s', $login, $cmd );
+    }
 
-	$self->_debug($sshcmd);
-	return undef if $dryrun;
+    $self->_debug($sshcmd);
+    return undef if $dryrun;
 
-	my @out = `$sshcmd`;
+    my @out = `$sshcmd`;
 
-	# uncoverable branch true
-	confess if $?;
+    # uncoverable branch true
+    confess if $?;
 
-	return @out;
+    return @out;
 }
 
 sub _get_dest_username {
-	my $self = shift;
+    my $self = shift;
 
-	if ( $self->{conf}->{backup_user} ) {
-		return $self->{conf}->{backup_user};
-	}
+    if ( $self->{conf}->{backup_user} ) {
+        return $self->{conf}->{backup_user};
+    }
 
-	if ( $ENV{USER} ) {
-		return $ENV{USER};
-	}
+    if ( $ENV{USER} ) {
+        return $ENV{USER};
+    }
 
-	my $whoami = `whoami`;
-	chomp $whoami;
+    my $whoami = `whoami`;
+    chomp $whoami;
 
-	return $whoami;
+    return $whoami;
 }
 
 sub _get_dest_hostname {
-	my $self = shift;
+    my $self = shift;
 
-	return $self->{conf}->{backup_host};
+    return $self->{conf}->{backup_host};
 }
 
 sub _get_dest_tmp_dir {
-	my $self = shift;
+    my $self = shift;
 
-	return sprintf( "%s/%s", $self->get_dest_dir, ".tmp" );
+    return sprintf( "%s/%s", $self->get_dest_dir, ".tmp" );
 }
 
 sub _get_dest_backup_dir {
-	my $self = shift;
+    my $self = shift;
 
-	return sprintf( "%s/%s", $self->get_dest_dir, $self->{datestamp} );
+    return sprintf( "%s/%s", $self->get_dest_dir, $self->{datestamp} );
 }
 
 sub _is_unit_test {
-	my $self = shift;
+    my $self = shift;
 
-	# uncoverable branch false
-	if ( $0 =~ /\.t$/ ) {
-		return 1;
-	}
+    # uncoverable branch false
+    if ( $0 =~ /\.t$/ ) {
+        return 1;
+    }
 
-	return 0;
+    return 0;
 }
 
 sub _get_dest_login {
-	my $self = shift;
+    my $self = shift;
 
-	my $username = $self->_get_dest_username;
-	my $hostname = $self->_get_dest_hostname;
+    my $username = $self->_get_dest_username;
+    my $hostname = $self->_get_dest_hostname;
 
-	return sprintf( '%s@%s', $username, $hostname );
+    return sprintf( '%s@%s', $username, $hostname );
 }
 
 sub _rsync {
-	my $self          = shift;
-	my $dir           = shift;
-	my @extra_options = @_;
+    my $self          = shift;
+    my $dir           = shift;
+    my @extra_options = @_;
 
-	my $cmd;
-	my $login;
+    my $cmd;
+    my $login;
 
-	if ( $self->{dryrun} ) {
-		push( @extra_options, '--dry-run' );
-	}
+    if ( $self->{dryrun} ) {
+        push( @extra_options, '--dry-run' );
+    }
 
-	$self->_mk_dest_dir( sprintf( "%s%s", $self->_get_dest_tmp_dir, $dir ) );
-	$login = $self->_get_dest_login;
+    $self->_mk_dest_dir( sprintf( "%s%s", $self->_get_dest_tmp_dir, $dir ) );
+    $login = $self->_get_dest_login;
 
-	# uncoverable branch false
-	if ( $self->_is_unit_test ) {
-		$cmd = sprintf(
-						"rsync %s -a %s/ %s%s",
-						join( ' ', @extra_options ), $dir,
-						$self->_get_dest_tmp_dir, $dir
-		);
-	}
-	else {
-		$cmd = sprintf( "rsync %s -aze ssh %s/ %s:%s%s",
-						join( ' ', @extra_options ),
-						$dir, $login, $self->_get_dest_tmp_dir, $dir );
-	}
+    # uncoverable branch false
+    if ( $self->_is_unit_test ) {
+        $cmd = sprintf(
+            "rsync %s -a %s/ %s%s",
+            join( ' ', @extra_options ), $dir,
+            $self->_get_dest_tmp_dir, $dir
+        );
+    }
+    else {
+        $cmd = sprintf(
+            "rsync %s -aze ssh %s/ %s:%s%s",
+            join( ' ', @extra_options ),
+            $dir, $login, $self->_get_dest_tmp_dir, $dir
+        );
+    }
 
-	$cmd .= " --exclude-from " . $self->{exclude_file};
-	
-	$self->_debug($cmd);
-	system($cmd);
+    $cmd .= " --exclude-from " . $self->{exclude_file};
 
-	# uncoverable branch true
-	confess if $?; 
+    $self->_debug($cmd);
+    system($cmd);
+
+    # uncoverable branch true
+    confess if $?;
 }
 
 sub _full_backup {
-	my $self = shift;
-	my $dir  = shift;
+    my $self = shift;
+    my $dir  = shift;
 
-	$self->_rsync($dir);
+    $self->_rsync($dir);
 }
 
 sub _inc_backup {
-	my $self            = shift;
-	my $dir             = shift;
-	my $last_backup_dir = shift;
+    my $self            = shift;
+    my $dir             = shift;
+    my $last_backup_dir = shift;
 
-	my $link_dest =
-	  sprintf( "%s/%s/%s", $self->get_dest_dir, $last_backup_dir, $dir );
+    my $link_dest =
+      sprintf( "%s/%s/%s", $self->get_dest_dir, $last_backup_dir, $dir );
 
-	$self->_rsync( $dir, "--link-dest $link_dest" );
+    $self->_rsync( $dir, "--link-dest $link_dest" );
 }
 
 sub _mk_dest_dir {
-	my $self   = shift;
-	my $dir    = shift;
-	my $dryrun = shift;
+    my $self   = shift;
+    my $dir    = shift;
+    my $dryrun = shift;
 
-	my $cmd = sprintf( "mkdir -p %s", $dir );
-	$self->_ssh( $cmd, $dryrun );
+    my $cmd = sprintf( "mkdir -p %s", $dir );
+    $self->_ssh( $cmd, $dryrun );
 }
 
 sub _set_datestamp {
-	my $self = shift;
+    my $self = shift;
 
-	my $t = localtime;
-	$self->{datestamp} = sprintf( "%04d-%02d-%02d_%02d:%02d:%02d",
-								  $t->year + 1900,
-								  $t->mon + 1,
-								  $t->mday, $t->hour, $t->min, $t->sec );
+    my $t = localtime;
+    $self->{datestamp} = sprintf(
+        "%04d-%02d-%02d_%02d:%02d:%02d",
+        $t->year + 1900,
+        $t->mon + 1,
+        $t->mday, $t->hour, $t->min, $t->sec
+    );
 }
 
 =head2 backup
@@ -350,40 +359,47 @@ Invokes the backup process.  Takes no args.
 =cut
 
 sub backup {
-	my $self = shift;
+    my $self = shift;
 
-	$self->_mk_dest_dir( $self->get_dest_dir );
-	my @backups = $self->get_list_of_backups;
-	$self->_set_datestamp;
+    $self->_mk_dest_dir( $self->get_dest_dir );
+    my @backups = $self->get_list_of_backups;
+    $self->_set_datestamp;
 
-	foreach my $dir ( $self->_get_dirs ) {
+    foreach my $dir ( $self->_get_dirs ) {
 
-		$self->_info("backing up $dir");
-		$self->_mk_dest_dir( $self->_get_dest_tmp_dir, $self->{dryrun} );
+        if ( -d $dir ) {
 
-		if ( !@backups ) {
+            $self->_info("backing up $dir");
+            $self->_mk_dest_dir( $self->_get_dest_tmp_dir, $self->{dryrun} );
 
-			# full
-			$self->_full_backup($dir);
-		}
-		else {
+            if ( !@backups ) {
 
-			# incremental
-			$self->_inc_backup( $dir, $backups[$#backups] );
-		}
-	}
+                # full
+                $self->_full_backup($dir);
+            }
+            else {
 
-	$self->_mk_dest_dir( $self->get_dest_dir, $self->{dryrun} );
-	$self->_ssh(
-				 sprintf( "mv %s %s",
-						  $self->_get_dest_tmp_dir,
-						  $self->_get_dest_backup_dir ),
-				 $self->{dryrun}
-	);
+                # incremental
+                $self->_inc_backup( $dir, $backups[$#backups] );
+            }
+        }
+        else {
+            $self->_info("skipping $dir because it does not exist");
 
-	$self->expire();
+        }
 
-	return 1;
+    }
+
+    $self->_mk_dest_dir( $self->get_dest_dir, $self->{dryrun} );
+    $self->_ssh(
+        sprintf( "mv %s %s",
+            $self->_get_dest_tmp_dir, $self->_get_dest_backup_dir ),
+        $self->{dryrun}
+    );
+
+    $self->expire();
+
+    return 1;
 }
 
 =head2 expire
@@ -394,17 +410,20 @@ beyond the cutoff (see "copies" in the conf file).
 =cut
 
 sub expire {
-	my $self = shift;
+    my $self = shift;
 
-	my @list = $self->get_list_of_backups;
+    my @list = $self->get_list_of_backups;
 
-	while ( scalar(@list) > $self->{conf}->{copies} ) {
+    while ( scalar(@list) > $self->{conf}->{copies} ) {
 
-		my $subdir = shift @list;
-		my $del_dir = sprintf( "%s/%s", $self->get_dest_dir, $subdir );
+        my $subdir = shift @list;
+        my $del_dir = sprintf( "%s/%s", $self->get_dest_dir, $subdir );
 
-		$self->_ssh("rm -rf $del_dir");
-	}
+        my $cmd = sprintf( "%s rm -rf $del_dir",
+            $self->{conf}->{use_sudo} ? 'sudo' : '' );
+
+        $self->_ssh($cmd);
+    }
 }
 
 =head2 get_backup_host
@@ -414,8 +433,8 @@ Returns the backup_host name.
 =cut
 
 sub get_backup_host {
-	my $self = shift;
-	return $self->{conf}->{backup_host};
+    my $self = shift;
+    return $self->{conf}->{backup_host};
 }
 
 =head2 get_dest_dir
@@ -425,34 +444,34 @@ Returns the dest_dir.
 =cut
 
 sub get_dest_dir {
-	my $self = shift;
+    my $self = shift;
 
-	my $hostname = hostname();
-	$hostname =~ s/\..+$//;
+    my $hostname = hostname();
+    $hostname =~ s/\..+$//;
 
-	if ( $self->{conf}->{append_machine_id} ) {
+    if ( $self->{conf}->{append_machine_id} ) {
 
-		# uncoverable branch true
-		if ( !-f '/etc/machine-id' ) {
+        # uncoverable branch true
+        if ( !-f '/etc/machine-id' ) {
 
-			# uncoverable statement count:2
-			my $data_uuid = Data::UUID->new;
-			my $uuid      = $data_uuid->create_str();
+            # uncoverable statement count:2
+            my $data_uuid = Data::UUID->new;
+            my $uuid      = $data_uuid->create_str();
 
-			# uncoverable statement count:3
-			open my $fh, ">/etc/machine-id"
-			  or confess "failed to open /etc/machine-id: $!";
-			print $fh "$uuid\n";
-			close($fh);
-		}
+            # uncoverable statement count:3
+            open my $fh, ">/etc/machine-id"
+              or confess "failed to open /etc/machine-id: $!";
+            print $fh "$uuid\n";
+            close($fh);
+        }
 
-		my $uuid = slurp("/etc/machine-id");
-		chomp $uuid;
+        my $uuid = slurp("/etc/machine-id");
+        chomp $uuid;
 
-		$hostname = "$hostname-$uuid";
-	}
+        $hostname = "$hostname-$uuid";
+    }
 
-	return sprintf( "%s/%s", $self->{conf}->{dest_dir}, $hostname );
+    return sprintf( "%s/%s", $self->{conf}->{dest_dir}, $hostname );
 }
 
 =head2 get_list_of_backups
@@ -461,21 +480,21 @@ Returns an array of backups.  They are in the format of "YYYY-MM-DD_HH:MM:SS".
 =cut
 
 sub get_list_of_backups {
-	my $self = shift;
+    my $self = shift;
 
-	my @backups;
+    my @backups;
 
-	my @list = $self->_ssh( sprintf( "ls %s", $self->get_dest_dir ) );
+    my @list = $self->_ssh( sprintf( "ls %s", $self->get_dest_dir ) );
 
-	foreach my $e (@list) {
-		chomp $e;
+    foreach my $e (@list) {
+        chomp $e;
 
-		if ( $e =~ /^\d\d\d\d-\d\d-\d\d_\d\d:\d\d:\d\d$/ ) {
-			push( @backups, $e );
-		}
-	}
+        if ( $e =~ /^\d\d\d\d-\d\d-\d\d_\d\d:\d\d:\d\d$/ ) {
+            push( @backups, $e );
+        }
+    }
 
-	return @backups;
+    return @backups;
 }
 
 =head1 AUTHOR
