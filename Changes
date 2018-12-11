@@ -1,5 +1,7 @@
 Revision history for Backup-EZ
 
+0.39    - fixed File::ShareDir accidently removed from Makefile.PL
+
 0.38    - fixed [rt.cpan.org #127940] Undeclared dependency File::ShareDir::Install
         - fixed [rt.cpan.org #111469] (found something I missed the first time)
 
