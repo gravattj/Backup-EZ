@@ -15,8 +15,12 @@ WriteMakefile(
 	EXE_FILES          => ['bin/ezbackup'],
 	PL_FILES           => {},
 	MIN_PERL_VERSION   => 5.006,
-	CONFIGURE_REQUIRES => { 'ExtUtils::MakeMaker' => 0, },
-	PREREQ_PM          => {
+	CONFIGURE_REQUIRES => {
+		'ExtUtils::MakeMaker'     => 0,
+		'File::ShareDir' => 0,
+		'File::ShareDir::Install' => 0
+	},
+	PREREQ_PM => {
 		'Carp'                    => 0,
 		'Config::General'         => 0,
 		'Data::Printer'           => 0,
@@ -26,8 +30,6 @@ WriteMakefile(
 		'Devel::Confess'          => 0,
 		'Env'                     => 0,
 		'File::RandomGenerator'   => 0,
-		'File::ShareDir'          => 0,
-		'File::ShareDir::Install' => 0,
 		'File::Slurp'             => 0,
 		'Modern::Perl'            => 0,
 		'Sys::Hostname'           => 0,
@@ -36,8 +38,9 @@ WriteMakefile(
 	},
 
 	BUILD_REQUIRES => {
+		'File::Path'              => 0,
+		'File::Touch'             => 0,
 		'Test::More'              => 0,
-		'File::ShareDir::Install' => 0
 	},
 	dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
 	clean => { FILES    => 'Backup-EZ-*' },

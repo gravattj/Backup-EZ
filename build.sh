@@ -1,5 +1,5 @@
 #!/bin/sh
 
-rm -f *.gz
-rm -f MANIFEST
-perl Makefile.PL && make && make test && make manifest && make dist
+rm -rf blib *.gz MANIFEST
+perl Makefile.PL && make && make test 
+make clean && perl Makefile.PL && make manifest dist
