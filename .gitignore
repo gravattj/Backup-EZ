@@ -3,7 +3,6 @@ Makefile.old
 *.gz
 .includepath
 .project
-MANIFEST
 MANIFEST.bak
 blib/
 cover_db/
