@@ -1,5 +1,7 @@
 Revision history for Backup-EZ
 
+0.41    - Fixed bug in t/18-exclude.t
+
 0.40    - Add feature to provide extra_rsync_opts via config file
 
 0.39    - fixed File::ShareDir accidently removed from Makefile.PL
