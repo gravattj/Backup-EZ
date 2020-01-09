@@ -1,5 +1,11 @@
 package Backup::EZ::Dir;
 
+=head1 NAME
+
+Backup::EZ::Dir
+
+=cut
+
 use strict;
 use warnings;
 use warnings FATAL => 'all';

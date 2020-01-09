@@ -32,13 +32,7 @@ use constant ARCHIVE_NO_RECURSE_OPTS => '-dlptgoDz';
 
 Backup::EZ - Simple backups based on rsync
 
-=head1 VERSION
-
-Version 0.40
-
 =cut
-
-our $VERSION = '0.41';
 
 =head1 SYNOPSIS
 
