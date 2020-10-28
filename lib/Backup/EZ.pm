@@ -46,18 +46,18 @@ Backup::EZ - Simple backups based on rsync
 Backup::EZ is backup software that is designed to be as easy to use
 as possible, yet provide a robust solution
 
-If you only want to run backups, see the included command line utility 
-"ezbackup".  See the README for configuration instructions. 
+If you only want to run backups, see the included command line utility
+"ezbackup".  See the README for configuration instructions.
 
 =head1 SUBROUTINES/METHODS
 
 =head2 new
 
 optional args:
-    conf         => $config_file      
-    dryrun       => $bool,            
-    exclude_file => $rsync_excl_file  
-  
+    conf         => $config_file
+    dryrun       => $bool,
+    exclude_file => $rsync_excl_file
+
 =cut
 
 sub new {
@@ -187,7 +187,7 @@ Returns a list Backup::EZ::Dir objects as read from the conf file.
 
 sub get_conf_dirs {
     my $self = shift;
-    return $self->_get_dirs;        
+    return $self->_get_dirs;
 }
 
 sub _ssh {
@@ -205,7 +205,11 @@ sub _ssh {
         $sshcmd = "$cmd";
     }
     else {
-        $sshcmd = sprintf( 'ssh %s %s', $login, $cmd );
+        my $ssh_opts = [];
+        if ( $self->{conf}->{ssh_opts} ){
+            push @$ssh_opts, $self->{conf}->{ssh_opts};
+        }
+        $sshcmd = sprintf( 'ssh %s %s %s', join( ' ', @{$ssh_opts}), $login, $cmd );
     }
 
     $self->_debug($sshcmd);
@@ -321,12 +325,13 @@ sub _get_dest_login {
 sub _rsync2 {
     my $self = shift;
     my %a    = @_;
-    
+
     my $dir          = $a{dir} or confess "missing dir arg";
     my $link_dest    = $a{link_dest};
     my $archive_opts = $a{archive_opts} || '-az';
     my $extra_opts   = $a{extra_opts} || [];
-    
+    my $ssh_opts     = $a{ssh_opts} || [];
+
     my $cmd;
     my $login;
 
@@ -341,9 +346,13 @@ sub _rsync2 {
     if ( $self->{exclude_file} ) {
         push @$extra_opts, sprintf '--exclude-from "%s"', $self->{exclude_file};
     }
-    
+
     if ( $self->{conf}->{extra_rsync_opts} ){
         push @$extra_opts, $self->{conf}->{extra_rsync_opts};
+    }
+
+    if ( $self->{conf}->{ssh_opts} ){
+        push @$ssh_opts, $self->{conf}->{ssh_opts};
     }
 
     $self->_mk_dest_dir( sprintf( "%s%s", $self->_get_dest_tmp_dir, $dir ) );
@@ -362,37 +371,38 @@ sub _rsync2 {
     }
     else {
         $cmd = sprintf(
-            'rsync -s %s %s -e ssh "%s/" %s:"%s%s"',
+            'rsync -s %s %s -e "ssh %s" "%s/" %s:"%s%s"',
             join( ' ', @{$extra_opts} ),    # extra rsync options
             $archive_opts,                  # archive options
+            join( ' ', @{$ssh_opts} ),      # ssh options
             $dir,                           # src dir
             $login,                         # login
             $self->_get_dest_tmp_dir,       # dest tmp dir
             $dir,                           # dest sub dir
         );
     }
-   
+
     #
     # fail safe bailout in case of bug
-    # 
+    #
     my @cmd = split(/\s+/, $cmd);
     my $link_cnt = 0;
     foreach my $c (@cmd) {
         if ($c =~ /link-dest/) {
-            $link_cnt++    
-        }    
+            $link_cnt++
+        }
     }
-    
+
     if ($link_cnt > 1) {
-        confess "too many link-dest args: $cmd";     
+        confess "too many link-dest args: $cmd";
     }
-   
+
     #
-    # ok execute 
-    # 
+    # ok execute
+    #
     $self->_debug($cmd);
     system($cmd);
-    
+
     # uncoverable branch true
     confess if $?;
 }
@@ -484,7 +494,7 @@ sub _inc_backup_chunked {
     my $dir             = shift;
     my $last_backup_dir = shift;
     my $link_dest       = shift;
-   
+
     $self->_rsync2(
         dir          => $dir->dirname,
         archive_opts => ARCHIVE_NO_RECURSE_OPTS,
@@ -493,9 +503,9 @@ sub _inc_backup_chunked {
     );
 
     my @entries = read_dir( $dir->dirname, prefix => 0 );
-    
+
     foreach my $entry (@entries) {
-        
+
         my $abs_entry = sprintf( '%s/%s', $dir->dirname, $entry );
 
         if ( -d $abs_entry ) {
@@ -582,7 +592,7 @@ sub backup {
     $self->_mk_dest_dir( $self->_get_dest_tmp_dir, $self->{dryrun} );
 
     foreach my $dir ( $self->_get_dirs ) {
-        
+
         my $dirname = $dir->dirname();
         if ( -d $dirname ) {
 
@@ -617,7 +627,7 @@ sub backup {
 
 =head2 expire
 
-Expire backups.  Gets a list of current backups and removes old ones that are 
+Expire backups.  Gets a list of current backups and removes old ones that are
 beyond the cutoff (see "copies" in the conf file).
 
 =cut
@@ -710,4 +720,4 @@ sub get_list_of_backups {
     return @backups;
 }
 
-1;  
+1;
