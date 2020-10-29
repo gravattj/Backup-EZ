@@ -549,7 +549,11 @@ sub _mk_dest_dir {
     my $dir    = shift;
     my $dryrun = shift;
 
-    my $cmd = sprintf( "mkdir -p %s", $dir );
+    my $cmd = sprintf( "%s mkdir -p %s",
+                  $self->{conf}->{use_sudo} ? 'sudo' : '',
+                  $dir
+              );
+
     $self->_ssh( $cmd, $dryrun );
 }
 
