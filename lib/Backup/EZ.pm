@@ -205,7 +205,9 @@ sub _ssh {
         $sshcmd = "$cmd";
     }
     else {
-        $cmd = sprintf( "%s $cmd", $self->{conf}->{use_sudo} ? 'sudo' : '' );
+        if ($cmd !~ /^ *sudo /) {
+            $cmd = sprintf( "%s $cmd", $self->{conf}->{use_sudo} ? 'sudo' : '' );
+        }
 
         my $ssh_opts = [];
         if ( $self->{conf}->{ssh_opts} ) {
@@ -644,7 +646,8 @@ sub expire {
         my $subdir = shift @list;
         my $del_dir = sprintf( "%s/%s", $self->get_dest_dir, $subdir );
 
-        my $cmd = "rm -rf $del_dir";
+        my $cmd = sprintf( "%s rm -rf $del_dir",
+            $self->{conf}->{use_sudo} ? 'sudo' : '' );
 
         $self->_ssh($cmd);
     }
