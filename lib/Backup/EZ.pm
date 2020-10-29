@@ -210,8 +210,12 @@ sub _ssh {
         $sshcmd = "$cmd";
     }
     else {
+        if ($cmd !~ /^ *sudo /) {
+            $cmd = sprintf( "%s $cmd", $self->{conf}->{use_sudo} ? 'sudo' : '' );
+        }
+
         my $ssh_opts = [];
-        if ( $self->{conf}->{ssh_opts} ){
+        if ( $self->{conf}->{ssh_opts} ) {
             push @$ssh_opts, $self->{conf}->{ssh_opts};
         }
         $sshcmd = sprintf( 'ssh %s %s %s', join( ' ', @{$ssh_opts}), $login, $cmd );
