@@ -25,6 +25,7 @@ use constant COPIES                  => 30;
 use constant DEST_HOSTNAME           => 'localhost';
 use constant DEST_APPEND_MACH_ID     => 0;
 use constant USE_SUDO                => 0;
+use constant IGNORE_VANISHED         => 0;
 use constant DEFAULT_ARCHIVE_OPTS    => '-az';
 use constant ARCHIVE_NO_RECURSE_OPTS => '-dlptgoDz';
 
@@ -156,6 +157,10 @@ sub _read_conf {
 
         if ( !defined $conf{use_sudo} ) {
             $conf{use_sudo} = USE_SUDO;
+        }
+
+        if ( !defined $conf{ignore_vanished} ) {
+            $conf{ignore_vanished} = IGNORE_VANISHED;
         }
     }
 
@@ -404,7 +409,16 @@ sub _rsync2 {
     system($cmd);
 
     # uncoverable branch true
-    confess if $?;
+    # uncoverable branch true
+    if ($?) {
+        my $exit = $? >> 8;
+        if ($exit == 24 && $self->{conf}->{ignore_vanished}) {
+            $self->_debug("ignoring vanished files");
+        }
+        else {
+            confess;
+        }
+    }
 }
 
 # Unused?
