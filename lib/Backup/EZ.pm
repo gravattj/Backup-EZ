@@ -210,9 +210,12 @@ sub _ssh {
         $sshcmd = "$cmd";
     }
     else {
-        if ($cmd !~ /^ *sudo /) {
-            $cmd = sprintf( "%s $cmd", $self->{conf}->{use_sudo} ? 'sudo' : '' );
-        }
+#    	
+# this breaks stuff.  commenting out for now.
+#
+#        if ($cmd !~ /^ *sudo /) {
+#            $cmd = sprintf( "%s $cmd", $self->{conf}->{use_sudo} ? 'sudo' : '' );
+#        }
 
         my $ssh_opts = [];
         if ( $self->{conf}->{ssh_opts} ) {
